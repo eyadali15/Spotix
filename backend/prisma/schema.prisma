@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String             @id @default(uuid())
+  name             String
+  email            String?            @unique
+  phone            String             @unique
+  password         String
+  role             String             @default("CLIENT") // CLIENT | OWNER
+  language         String             @default("en")
+  verified         Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  parkingLots      ParkingLot[]
+  reservations     Reservation[]
+  otps             OTP[]
+  washingLocations WashingLocation[]
+  washingBookings  WashingBooking[]
+  reviews          Review[]
+}
+
+model ParkingLot {
+  id             String        @id @default(uuid())
+  ownerId        String
+  name           String
+  address        String
+  latitude       Float
+  longitude      Float
+  totalSpots     Int
+  availableSpots Int
+  pricePerHour   Float
+  oldPrice       Float?
+  parkingType    String        @default("UNCOVERED") // COVERED | UNCOVERED
+  openTime       Int           @default(0)
+  closeTime      Int           @default(24)
+  status         String        @default("ACTIVE")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  owner          User          @relation(fields: [ownerId], references: [id])
+  reservations   Reservation[]
+  reviews        Review[]
+}
+
+model Reservation {
+  id        String     @id @default(uuid())
+  userId    String
+  lotId     String
+  status    String     @default("ACTIVE") // ACTIVE | USED | CANCELLED
+  qrToken   String     @unique
+  price     Float      @default(0)
+  startTime DateTime   @default(now())
+  endTime   DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id])
+  lot       ParkingLot @relation(fields: [lotId], references: [id])
+}
+
+model WashingLocation {
+  id          String           @id @default(uuid())
+  ownerId     String
+  name        String
+  address     String
+  latitude    Float
+  longitude   Float
+  rating      Float            @default(0)
+  reviewCount Int              @default(0)
+  openHours   String           @default("8:00 AM - 10:00 PM")
+  openTime    Int              @default(9)   // hour 0-23
+  closeTime   Int              @default(21)  // hour 0-23
+  busyUntil   DateTime?                       // null = free, date = busy until
+  status      String           @default("ACTIVE")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  owner       User             @relation(fields: [ownerId], references: [id])
+  services    WashingService[]
+  bookings    WashingBooking[]
+  reviews     Review[]
+}
+
+model WashingService {
+  id         String          @id @default(uuid())
+  locationId String
+  name       String
+  price      Float
+  oldPrice   Float?
+  duration   Int             // minutes
+  createdAt  DateTime        @default(now())
+  location   WashingLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+}
+
+model WashingBooking {
+  id            String          @id @default(uuid())
+  userId        String
+  locationId    String
+  services      String          @default("[]") // JSON array of service names
+  totalDuration Int             @default(0)    // total minutes
+  totalPrice    Float           @default(0)
+  status        String          @default("PENDING") // PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED
+  bookingTime   DateTime
+  endTime       DateTime?
+  qrToken       String          @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  user          User            @relation(fields: [userId], references: [id])
+  location      WashingLocation @relation(fields: [locationId], references: [id])
+}
+
+model Review {
+  id               String           @id @default(uuid())
+  userId           String
+  parkingLotId     String?
+  washingLocationId String?
+  locationType     String           // PARKING | WASHING
+  rating           Int
+  comment          String?
+  createdAt        DateTime         @default(now())
+  user             User             @relation(fields: [userId], references: [id])
+  parkingLot       ParkingLot?      @relation(fields: [parkingLotId], references: [id])
+  washingLocation  WashingLocation? @relation(fields: [washingLocationId], references: [id])
+}
+
+model OTP {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
